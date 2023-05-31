@@ -2,7 +2,10 @@
 using Discord.Audio;
 using Discord.Interactions;
 using Discord.WebSocket;
-using MikuDiscordBot.MikuDiscord;
+using Microsoft.EntityFrameworkCore;
+using MikuDiscordBot.Database;
+using MikuDiscordBot.Database.Models;
+using MikuDiscordBot.MikuDiscord.MusicEngine;
 using NAudio.CoreAudioApi;
 using System;
 using System.Collections.Generic;
@@ -19,19 +22,64 @@ namespace MikuDiscordBot.Interactions.SlashCommands
     public class Music : InteractionModuleBase<SocketInteractionContext>
     {
         private MusicSystem? guildMusicSystem;
+        private PlaylistManager? playlistManager;
+        private readonly DiscordDBContext db;
+
+        public Music(DiscordDBContext db) 
+        {
+            this.db = db;
+        }
 
         public override void BeforeExecute(ICommandInfo command)
         {
             guildMusicSystem = MusicSystem.MusicSystemList[Context.Guild.Id];
+            playlistManager = PlaylistManager.GuildPlaylist[Context.Guild.Id];
+
         }
 
-        [SlashCommand("add", "Add a Song to the Playlist.")]
-        public async Task Add()
+        [Group("add", "Here you can add songs to playlist or create a playlist")]
+        public class MusicAdd : InteractionModuleBase<SocketInteractionContext>
         {
-            FileStream file = new(@"C:\Users\denis\Desktop\775 WATER Feat. Miku - A-39【オリジナル曲】.mp3", FileMode.Open);
-            guildMusicSystem?.AddSong(file);
+            private readonly DiscordDBContext db;
+            public MusicAdd(DiscordDBContext db)
+            {
+                this.db = db;
+            }
 
-            await RespondAsync("Song Added");
+            [SlashCommand("playlist", "Add a Playlist")]
+            public async Task AddPlaylist(string playlistName)
+            {
+                GuildInfo guild = await db.GuildInfo.Include(pls => pls.Playlists)
+                    .FirstAsync(guild => guild.GuildID == Context.Guild.Id);
+                guild.Playlists.Add(new Playlist() { PlaylistName = playlistName });
+                await db.SaveChangesAsync();
+                await RespondAsync($"Playlist {playlistName} added.");
+            }
+        }
+
+        [SlashCommand("select-playlist", "Start playing the Music.")]
+        public async Task SelectPlaylist()
+        {
+            var playlists = db.GuildInfo.Include(pl => pl.Playlists)
+                .First(guild => guild.GuildID == Context.Guild.Id)
+                .Playlists;
+
+            var menuBuilder = new SelectMenuBuilder();
+            menuBuilder.WithCustomId("playlistmenu");
+            menuBuilder.WithMinValues(1);
+            menuBuilder.WithMaxValues(1);
+            Console.WriteLine(Context.Interaction.Id);
+            foreach (var pl in playlists)
+            {
+                string value = $"{pl.ID}"; // hier weiter machen
+                if(pl.ID == playlistManager?.selectedPlaylist?.ID)
+                    menuBuilder.AddOption(pl.PlaylistName, value, isDefault: true);
+                else
+                    menuBuilder.AddOption(pl.PlaylistName, value);
+            }
+            var builder = new ComponentBuilder().WithSelectMenu(menuBuilder);
+
+            await RespondAsync("Select a Playlist", components: builder.Build());
         }
 
         [SlashCommand("play", "Start playing the Music.")]

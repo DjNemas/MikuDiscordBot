@@ -24,6 +24,7 @@ namespace MikuDiscordBot.MikuDiscord
         {
             client.Log += log.ClientLog;
             client.GuildAvailable += events.GuildAvailable;
+            client.SelectMenuExecuted += events.SelectMenuExecuted;
 
             await client.LoginAsync(TokenType.Bot, GetTokenFromDB());
             await client.StartAsync();

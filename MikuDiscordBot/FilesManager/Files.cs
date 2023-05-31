@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using MikuDiscordBot.FilesManager.Models;
 using System.Text.Json;
-using System.Threading.Tasks;
-using MikuDiscordBot.FilesManager.Models;
 
 namespace MikuDiscordBot.FilesManager
 {
@@ -26,6 +21,10 @@ namespace MikuDiscordBot.FilesManager
         private static readonly string configFile = "config.json";
         public static readonly string configRelativePath = Path.Combine(configDir, configFile);
         public static readonly string configAbsolutPath = Path.Combine(Environment.CurrentDirectory, configRelativePath);
+        // Music Folder
+        private static readonly string musicDir = "music";
+        public static readonly string musicRelativePath = Path.Combine(musicDir);
+        public static readonly string musicAbsolutPath = Path.Combine(Environment.CurrentDirectory, musicRelativePath);
 
         public static void EnsureConfigFileExist()
         {
@@ -53,12 +52,32 @@ namespace MikuDiscordBot.FilesManager
             EnsureFolderExist(new FileInfo(logAbsolutPath));
             // Config
             EnsureFolderExist(new FileInfo(configAbsolutPath));
+            // Music
+            EnsureFolderExist(new DirectoryInfo(musicAbsolutPath));
         }
 
-        private static void EnsureFolderExist(FileInfo file)
+        public static void EnsureFolderExist(DirectoryInfo dir)
         {
-            if (!Directory.Exists(file.FullName) && file.DirectoryName != null)
+            if (!Directory.Exists(dir.FullName))
+                Directory.CreateDirectory(dir.FullName);
+        }
+
+        public static void EnsureFolderExist(FileInfo file)
+        {
+            if (!Directory.Exists(file.FullName) && file.DirectoryName is not null)
                 Directory.CreateDirectory(file.DirectoryName);
+        }
+
+        public static void DeleteAllInDir(DirectoryInfo file)
+        {
+            foreach (var item in file.GetDirectories())
+            {
+                item.Delete(true);
+            }
+            foreach (var item in file.GetFiles())
+            {
+                item.Delete();
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using MikuDiscordBot.Database;
+using MikuDiscordBot.MikuDiscord.MusicEngine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,6 +35,15 @@ namespace MikuDiscordBot.MikuDiscord.Events
             }
 
             new MusicSystem(guild.Id);
+            await new PlaylistManager(db).LoadGuildPlaylist(guild.Id);
+        }
+
+        public async Task SelectMenuExecuted(SocketMessageComponent arg)
+        {
+            uint id = uint.Parse(arg.Data.Value);
+            if(arg.GuildId is not null)
+                await PlaylistManager.GuildPlaylist[(ulong)arg.GuildId].ChangePlaylist(id);
+            await arg.RespondAsync($"Playlist Selected: {arg.Data.Value}");
         }
     }
 }

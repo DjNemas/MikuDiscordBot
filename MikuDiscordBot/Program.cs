@@ -7,6 +7,7 @@ using MikuDiscordBot.FilesManager.Models;
 using MikuDiscordBot.Interactions.SlashCommands;
 using MikuDiscordBot.MikuDiscord;
 using MikuDiscordBot.MikuDiscord.Events;
+using MikuDiscordBot.MikuDiscord.MusicEngine;
 using MikuDiscordBot.MikuDiscord.SpeekEngine;
 using Newtonsoft.Json.Linq;
 
@@ -14,7 +15,7 @@ namespace MikuDiscordBot
 {
     internal class Program
     {
-        public readonly IServiceProvider? serviceProvider;
+        private readonly IServiceProvider? serviceProvider;
         private DiscordDBContext db;
         private DiscordClientService? discordClientService;
         private DiscordInteractionService? interactionService;
@@ -50,6 +51,7 @@ namespace MikuDiscordBot
                 .AddSingleton<InteractionService>()
                 .AddSingleton<ClientEvents>()
                 .AddSingleton<DiscordLog>()
+                .AddSingleton<PlaylistManager>()
                 // more here
                 .AddDbContext<DiscordDBContext>();
             return collection.BuildServiceProvider();
