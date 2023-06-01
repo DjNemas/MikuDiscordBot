@@ -13,7 +13,7 @@ namespace MikuDiscordBot.MikuDiscord.MusicEngine
     public class YTDLP
     {
         private ProcessStartInfo processStartInfo;
-        private static bool isValidVideo = true;
+        private bool isValidVideo = true;
         public YTDLP()
         {
             processStartInfo = new ProcessStartInfo()
@@ -64,20 +64,36 @@ namespace MikuDiscordBot.MikuDiscord.MusicEngine
         {
             var process = new Process();
             process.StartInfo = processStartInfo;
+#if DEBUG
             process.ErrorDataReceived += Ytdl_ErrorDataReceived;
+            process.OutputDataReceived += Process_OutputDataReceived;
+#endif
             process.Start();
+#if DEBUG
             process.BeginErrorReadLine();
+            process.BeginOutputReadLine();
+#endif
             process.WaitForExit();
             return Task.CompletedTask;
+        }
+#if DEBUG
+        private void Process_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            if(e.Data is not null)
+            {
+                Console.WriteLine("[YTDLP Log] " + e.Data);
+            }
         }
 
         private void Ytdl_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
             if (e.Data is not null)
             {
+                Console.WriteLine("[YTDLP Error] " + e.Data);
                 if (e.Data.Contains("Unsupported URL"))
                     isValidVideo = false;
             }
         }
+#endif
     }
 }

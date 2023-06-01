@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using static System.Net.WebRequestMethods;
 
 namespace MikuDiscordBot.Interactions.SlashCommands
 {
@@ -24,6 +25,7 @@ namespace MikuDiscordBot.Interactions.SlashCommands
         private MusicSystem? guildMusicSystem;
         private PlaylistManager? playlistManager;
         private readonly DiscordDBContext db;
+        
 
         public Music(DiscordDBContext db) 
         {
@@ -41,9 +43,11 @@ namespace MikuDiscordBot.Interactions.SlashCommands
         public class MusicAdd : InteractionModuleBase<SocketInteractionContext>
         {
             private readonly DiscordDBContext db;
-            public MusicAdd(DiscordDBContext db)
+            private readonly YTDLP ytDLP;
+            public MusicAdd(DiscordDBContext db, YTDLP ytDLP)
             {
                 this.db = db;
+                this.ytDLP = ytDLP;
             }
 
             [SlashCommand("playlist", "Add a Playlist")]
@@ -54,6 +58,57 @@ namespace MikuDiscordBot.Interactions.SlashCommands
                 guild.Playlists.Add(new Playlist() { PlaylistName = playlistName });
                 await db.SaveChangesAsync();
                 await RespondAsync($"Playlist {playlistName} added.");
+            }
+
+            [SlashCommand("song", "Add a Song to Playlist. Allowed: youtube.com/de, music.youtube.com, with watch?v={id}", runMode: RunMode.Async)]
+            public async Task AddSong(string youTubeUrl)
+            {
+                await RespondAsync("Adding a Song for you ♪. Please Wait...");
+                Uri? uri = await CheckYTUrlIsCorrect(youTubeUrl);
+                if (uri is null) return;
+                
+                if (!await ytDLP.IsValidVideo(uri.AbsoluteUri))
+                {
+                    await ModifyOriginalResponseAsync(o => o.Content = "Not a valid video.");
+                    return;
+                }
+
+                await ModifyOriginalResponseAsync(o => o.Content = "passed");
+            }
+
+            private async Task<Uri?> CheckYTUrlIsCorrect(string youTubeUrl)
+            {
+                // Add https:// if missing
+                if (!youTubeUrl.StartsWith("https://"))
+                    youTubeUrl = "https://" + youTubeUrl;
+
+                Uri? uri = null;
+                Uri.TryCreate(youTubeUrl, UriKind.Absolute, out uri);
+                if (uri is null)
+                {
+                    await ModifyOriginalResponseAsync(o => o.Content = "Not a Valid URL.\n" +
+                        "Allowed Domains: youtube.de, youtube.com, music.youtube.com\n" +
+                        "Need to have a ID in URL: /watch?v={id}\n" +
+                        "Example: https://www.youtube.com/watch?v=xIOg_K6Z1fg");
+                    return null;
+                }
+                string host = uri.Host.StartsWith("www") ? uri.Host : "www." + uri.Host;
+                if (host != "www.youtube.com" &&
+                    host != "www.youtube.de" &&
+                    host != "www.music.youtube.com")
+                {
+                    await ModifyOriginalResponseAsync(o => o.Content = "Not a Valid domain.\n" +
+                        "Allowed Domains: youtube.de, youtube.com, music.youtube.com");
+                    return null;
+                }
+
+                if (!youTubeUrl.Contains("watch?v="))
+                {
+                    await ModifyOriginalResponseAsync(o => o.Content = "Video ID missing.\n" +
+                        "Please ensure the url contains a video id (watch?v={id})");
+                    return null;
+                }
+                return uri;
             }
         }
 
@@ -68,14 +123,14 @@ namespace MikuDiscordBot.Interactions.SlashCommands
             menuBuilder.WithCustomId("playlistmenu");
             menuBuilder.WithMinValues(1);
             menuBuilder.WithMaxValues(1);
-            Console.WriteLine(Context.Interaction.Id);
+
             foreach (var pl in playlists)
             {
-                string value = $"{pl.ID}"; // hier weiter machen
+                string ids = $"{pl.ID}, {pl.PlaylistName}";
                 if(pl.ID == playlistManager?.selectedPlaylist?.ID)
-                    menuBuilder.AddOption(pl.PlaylistName, value, isDefault: true);
+                    menuBuilder.AddOption(pl.PlaylistName, ids, isDefault: true);
                 else
-                    menuBuilder.AddOption(pl.PlaylistName, value);
+                    menuBuilder.AddOption(pl.PlaylistName, ids);
             }
             var builder = new ComponentBuilder().WithSelectMenu(menuBuilder);
 

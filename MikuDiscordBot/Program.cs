@@ -51,7 +51,8 @@ namespace MikuDiscordBot
                 .AddSingleton<InteractionService>()
                 .AddSingleton<ClientEvents>()
                 .AddSingleton<DiscordLog>()
-                .AddSingleton<PlaylistManager>()
+                .AddScoped<PlaylistManager>()
+                .AddScoped<YTDLP>()
                 // more here
                 .AddDbContext<DiscordDBContext>();
             return collection.BuildServiceProvider();

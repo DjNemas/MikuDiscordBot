@@ -40,10 +40,23 @@ namespace MikuDiscordBot.MikuDiscord.Events
 
         public async Task SelectMenuExecuted(SocketMessageComponent arg)
         {
-            uint id = uint.Parse(arg.Data.Value);
-            if(arg.GuildId is not null)
-                await PlaylistManager.GuildPlaylist[(ulong)arg.GuildId].ChangePlaylist(id);
-            await arg.RespondAsync($"Playlist Selected: {arg.Data.Value}");
+            // select playlist
+            if(arg.Data.CustomId == "playlistmenu")
+            {
+                
+                string[] values = arg.Data.Values.ElementAt(0).Split(",", StringSplitOptions.TrimEntries);
+                uint id = uint.Parse(values[0]);
+
+                if (arg.GuildId is not null)
+                    await PlaylistManager.GuildPlaylist[(ulong)arg.GuildId].ChangePlaylist(id);
+
+                await arg.UpdateAsync(sm => 
+                {
+                    sm.Content = $"Playlist Selected: {values[1]}";
+                    sm.Components = null;
+                });
+            }
+            // Add more here if needed with elseif
         }
     }
 }
