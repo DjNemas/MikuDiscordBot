@@ -1,0 +1,6 @@
+Miku Error Codes:
+
+Code	Class	Method	AdditionalDescription
+100: ClientEvents AddSong()
+101: ClientEvents AddSong()
+102: ClientEvents DeletePlaylistYes() [Database Delete]

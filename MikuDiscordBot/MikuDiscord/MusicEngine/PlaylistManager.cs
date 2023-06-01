@@ -12,14 +12,28 @@ namespace MikuDiscordBot.MikuDiscord.MusicEngine
     public class PlaylistManager
     {
         public static readonly Dictionary<ulong, PlaylistManager> GuildPlaylist = new();
+        private ulong guildID;
         private readonly DiscordDBContext db;
         private readonly string defaultPlaylistName = "Default";
         private List<Playlist> playlistList = new List<Playlist>();
         public Playlist? selectedPlaylist { get; private set; } = null;
 
-        public PlaylistManager(DiscordDBContext db)
+        public PlaylistManager(DiscordDBContext db, ulong guildID)
         {
             this.db = db;
+            this.guildID = guildID;
+        }
+
+        public void UpdateAllPlaylistForGuild()
+        {
+            playlistList = db.GuildInfo
+                .Include(pls => pls.Playlists)
+                .ThenInclude(s => s.Songs)
+                .First(guild => guild.GuildID == guildID)
+                .Playlists;
+
+            if (selectedPlaylist is not null && !playlistList.Contains(selectedPlaylist))
+                selectedPlaylist = playlistList.First(pl => pl.PlaylistName == "Default");
         }
 
         public async void ChangePlaylist(Playlist playlist)
@@ -32,7 +46,7 @@ namespace MikuDiscordBot.MikuDiscord.MusicEngine
             selectedPlaylist = await db.Playlists.FirstAsync(pl => pl.ID == id);
         }
 
-        public async Task LoadGuildPlaylist(ulong guildID)
+        public async Task LoadGuildPlaylist()
         {
             await EnsureGuildInfoExist(guildID);
             await EnsureDefaultPlaylistExist(guildID);

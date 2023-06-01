@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MikuDiscordBot.Database;
 using MikuDiscordBot.FilesManager;
 using MikuDiscordBot.FilesManager.Models;
+using MikuDiscordBot.Interactions;
 using MikuDiscordBot.Interactions.SlashCommands;
 using MikuDiscordBot.MikuDiscord;
 using MikuDiscordBot.MikuDiscord.Events;
@@ -51,6 +52,7 @@ namespace MikuDiscordBot
                 .AddSingleton<InteractionService>()
                 .AddSingleton<ClientEvents>()
                 .AddSingleton<DiscordLog>()
+                .AddSingleton<MenuBuilder>()
                 .AddScoped<PlaylistManager>()
                 .AddScoped<YTDLP>()
                 // more here

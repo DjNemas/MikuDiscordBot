@@ -26,18 +26,25 @@ namespace MikuDiscordBot.MikuDiscord.MusicEngine
             };
         }
 
-        public async Task<bool> IsValidVideo(string url)
+        /// <summary>
+        /// Downloads MetaData for Video
+        /// </summary>
+        /// <param name="url">The Video URL</param>
+        /// <param name="guildID">Select for which GuildID it should be download.</param>
+        /// <returns>Returns True if downloaded. False if Video is not Valid.</returns>
+        public async Task<bool> DownloadMetaData(string url, ulong guildID)
         {
-            processStartInfo.Arguments = $"-s --config-location yt-dlp.conf {url}";
+            var guildFolder = Files.EnsureMusicGuildFolderExist(guildID);
+
+            processStartInfo.Arguments = $"--config-location yt-dlp.conf --skip-download -P \"{guildFolder.FullName}\" {url}";
             await StartProcess();
+
             return isValidVideo;
         }
 
         public async Task<YTDownloadResult> DownloadMp3(string url, ulong guildID)
         {
-            // Create Guild Folder
-            var guildFolder = new DirectoryInfo(Path.Combine(Files.musicAbsolutPath, guildID.ToString()));
-            Files.EnsureFolderExist(guildFolder);
+            var guildFolder = Files.EnsureMusicGuildFolderExist(guildID);
 
             // Start YT-DLP
             processStartInfo.Arguments = $"--config-location yt-dlp.conf -P \"{guildFolder.FullName}\" {url}";

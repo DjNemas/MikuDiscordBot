@@ -25,9 +25,9 @@ namespace MikuDiscordBot.MikuDiscord
         public async Task Start()
         {
             interaction.Log += log.InteractionLog;
-            await interaction.AddModulesAsync(Assembly.GetEntryAssembly(), serviceProvider);
             client.InteractionCreated += Client_InteractionCreated;
-            
+
+            var modules = await interaction.AddModulesAsync(Assembly.GetEntryAssembly(), serviceProvider);
         }
 
         private async Task Client_InteractionCreated(SocketInteraction arg)
@@ -40,7 +40,8 @@ namespace MikuDiscordBot.MikuDiscord
         {
             return new InteractionServiceConfig()
             {
-                LogLevel = LogSeverity.Info
+                LogLevel = LogSeverity.Info,
+                DefaultRunMode = RunMode.Async
             };
         }
     }

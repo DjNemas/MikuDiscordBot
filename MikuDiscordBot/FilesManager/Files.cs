@@ -38,6 +38,16 @@ namespace MikuDiscordBot.FilesManager
                 File.WriteAllText(configAbsolutPath, json);
             }
         }
+        public static FileStream GetGuildMetadataFile(ulong guildID) => 
+            new FileStream(Path.Combine(musicAbsolutPath, guildID.ToString(), "music.info.json"), FileMode.Open);
+
+        public static DirectoryInfo EnsureMusicGuildFolderExist(ulong guildID)
+        {
+            // Create Guild Folder
+            var guildFolder = new DirectoryInfo(Path.Combine(musicAbsolutPath, guildID.ToString()));
+            EnsureFolderExist(guildFolder);
+            return guildFolder;
+        }
 
         public static ConfigJson? GetConfigFile()
         {

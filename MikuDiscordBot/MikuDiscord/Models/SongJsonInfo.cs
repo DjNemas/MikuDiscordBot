@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -10,7 +11,7 @@ namespace MikuDiscordBot.MikuDiscord.Models
     public class SongJsonInfo
     {
         [JsonPropertyName("id")]
-        public string ID { get; set; } = string.Empty;
+        public string VideoID { get; set; } = string.Empty;
         [JsonPropertyName("title")]
         public string Title { get; set; } = string.Empty;
         [JsonPropertyName("webpage_url")]
