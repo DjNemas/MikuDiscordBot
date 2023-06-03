@@ -28,8 +28,8 @@ namespace MikuDiscordBot.Interactions.SlashCommands
                 this.menuBuilder = menuBuilder;
             }
 
-            [SlashCommand("song", "Add a Song to Playlist. Allowed: youtube.com/de, music.youtube.com, with watch?v={id}")]
-            public async Task AddSong(string youTubeUrl)
+            [SlashCommand("add", "Add a Song to Playlist. Allowed: youtube.com/de, music.youtube.com, with watch?v={id}")]
+            public async Task SongAdd(string youTubeUrl)
             {
                 await RespondAsync("Adding a Song for you ♪. Please Wait...");
                 Uri? uri = await CheckYTUrlIsCorrect(youTubeUrl);
@@ -41,7 +41,7 @@ namespace MikuDiscordBot.Interactions.SlashCommands
                     return;
                 }
 
-                var menu = menuBuilder.BuildPlaylistSelection("AddSong", Context.Guild.Id);
+                var menu = menuBuilder.PlaylistSelect("SongAdd", Context.Guild.Id);
                 var builder = new ComponentBuilder().WithSelectMenu(menu);
 
                 await ModifyOriginalResponseAsync(o =>
@@ -97,7 +97,6 @@ namespace MikuDiscordBot.Interactions.SlashCommands
             {
                 this.db = db;
                 this.menuBuilder = menuBuilder;
-                this.menuBuilder = menuBuilder;
             }
 
             [SlashCommand("add", "Add a Playlist")]
@@ -114,7 +113,7 @@ namespace MikuDiscordBot.Interactions.SlashCommands
             [SlashCommand("select", "Select a Playlist to use for playing Music.")]
             public async Task Select()
             {
-                var menu = menuBuilder.BuildPlaylistSelection("SelectPlaylist", Context.Guild.Id);
+                var menu = menuBuilder.PlaylistSelect("PlaylistSelect", Context.Guild.Id);
                 var builder = new ComponentBuilder().WithSelectMenu(menu);
 
                 await RespondAsync("Select a Playlist", components: builder.Build());
@@ -123,12 +122,20 @@ namespace MikuDiscordBot.Interactions.SlashCommands
             [SlashCommand("delete", "Deletes a Playlist.")]
             public async Task Delete()
             {
-                var menu = menuBuilder.BuildPlaylistSelection("DeletePlaylist", Context.Guild.Id);
+                var menu = menuBuilder.PlaylistSelect("PlaylistDelete", Context.Guild.Id);
                 var builder = new ComponentBuilder().WithSelectMenu(menu);
 
                 await RespondAsync("Which playlist do you want to delete?", components: builder.Build());
             }
 
+            [SlashCommand("songs", "List Songs from Playlist.")]
+            public async Task Songs([MinValue(1)]int page = 1)
+            {
+                var menu = menuBuilder.PlaylistSelect("PlaylistSongs", Context.Guild.Id, extraData: new string[] { page.ToString() });
+                var builder = new ComponentBuilder().WithSelectMenu(menu);
+
+                await RespondAsync("From which playlist do you want to see the Songs?", components: builder.Build());   
+            }
         }
 
         [Group("control", "Control the Music")]

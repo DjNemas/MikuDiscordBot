@@ -56,7 +56,7 @@ namespace MikuDiscordBot
                 .AddScoped<PlaylistManager>()
                 .AddScoped<YTDLP>()
                 // more here
-                .AddDbContext<DiscordDBContext>();
+                .AddDbContext<DiscordDBContext>(contextLifetime: ServiceLifetime.Transient, optionsLifetime: ServiceLifetime.Transient);
             return collection.BuildServiceProvider();
         }
 

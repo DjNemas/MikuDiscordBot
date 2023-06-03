@@ -1,4 +1,5 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MikuDiscordBot.Database;
 using MikuDiscordBot.Database.Models;
 using MikuDiscordBot.FilesManager;
+using MikuDiscordBot.Interactions;
 using MikuDiscordBot.MikuDiscord.Models;
 using MikuDiscordBot.MikuDiscord.MusicEngine;
 using System;
@@ -23,11 +25,14 @@ namespace MikuDiscordBot.MikuDiscord.Events
     {
         private readonly DiscordDBContext db;
         private readonly InteractionService interaction;
+        private readonly MenuBuilder menuBuilder;
+        private const int playlistSongSize = 10;
 
-        public ClientEvents(DiscordDBContext db, InteractionService interaction)
+        public ClientEvents(DiscordDBContext db, InteractionService interaction, MenuBuilder menuBuilder)
         {
             this.db = db;
             this.interaction = interaction;
+            this.menuBuilder = menuBuilder;
         }
 
         public async Task GuildAvailable(SocketGuild guild)
@@ -50,36 +55,118 @@ namespace MikuDiscordBot.MikuDiscord.Events
         {
             switch (arg.Data.CustomId)
             {
-                case "DeletePlaylistNo":
-                    await DeletePlaylistNo(arg);
+                case "PlaylistDeleteNo":
+                    await PlaylistDeleteNo(arg);
                     break;            
                 default:
                 {
-                    // Special button Cases
-                    if (arg.Data.CustomId.Contains("DeletePlaylistYes"))
-                        await DeletePlaylistYes(arg);
+                        // Special button Cases
+                        if (arg.Data.CustomId.Contains("PlaylistDeleteYes"))
+                            await PlaylistDeleteYes(arg);
+                        else if (arg.Data.CustomId.Contains("PlaylistPageLeft"))
+                            await PlaylistPageButton(arg, true);
+                        else if (arg.Data.CustomId.Contains("PlaylistPageRight"))
+                            await PlaylistPageButton(arg, false);
                     break;
                 }
             }
         }
-
         public async Task SelectMenuExecuted(SocketMessageComponent arg)
         {
             switch (arg.Data.CustomId)
             {
-                case "SelectPlaylist":
-                    await SelectPlaylist(arg);
+                case "PlaylistSelect":
+                    await PlaylistSelect(arg);
                     break;
-                case "AddSong":
-                    await AddSong(arg);
+                case "SongAdd":
+                    await SongAdd(arg);
                     break;
-                case "DeletePlaylist":
-                    await DeletePlaylist(arg);
+                case "PlaylistDelete":
+                    await PlaylistDelete(arg);
+                    break;
+                case "PlaylistSongs":
+                    await PlaylistSongs(arg);
                     break;
             }
         }
 
-        private async Task DeletePlaylistYes(SocketMessageComponent arg)
+        private async Task PlaylistPageButton(SocketMessageComponent arg, bool left)
+        {
+            string[] values = arg.Data.CustomId.Split(',', StringSplitOptions.TrimEntries);
+            int page = int.Parse(values[1]);
+            uint playlistID = uint.Parse(values[2]);
+
+            var playlist = await GetPlaylistForPage(playlistID);
+
+            (var embedBuilder, var buttonBuilder) = PlaylistSongBuilder(playlist, page);
+
+            await arg.UpdateAsync(o =>
+            {
+                o.Content = null;
+                o.Embed = embedBuilder.Build();
+                o.Components = buttonBuilder.Build();
+            });
+            return;
+        }
+
+        private async Task PlaylistSongs(SocketMessageComponent arg)
+        {
+            var values = arg.Data.Values.ElementAt(0).Split(',', StringSplitOptions.TrimEntries);
+            uint playlistID = uint.Parse(values[0]);
+            int page = int.Parse(values[2]);
+
+            var playlist = await GetPlaylistForPage(playlistID);
+
+            if (playlist.Songs.Count == 0)
+            {
+                await arg.UpdateAsync(o =>
+                {
+                    o.Content = "No Songs in this Playlist.";
+                    o.Components = null;
+                });
+                return;
+            }
+            else if (!(playlist.Songs.Count > playlistSongSize * (page - 1)))
+            {
+                await arg.UpdateAsync(o =>
+                {
+                    o.Content = $"Page {page} doesn't exist for {playlist.PlaylistName}.";
+                    o.Components = null;
+                });
+                return;
+            }
+
+            // Build PlaylistSong Respons Property
+            (var embedBuilder, var buttonBuilder) = PlaylistSongBuilder(playlist, page);
+
+            await arg.UpdateAsync(o =>
+            {
+                o.Content = null;
+                o.Embed = embedBuilder.Build();
+                o.Components = buttonBuilder.Build();
+            });
+            return;
+        }
+
+        private async Task<Playlist> GetPlaylistForPage(uint playlistID)
+        {
+            return await db.Playlists
+                .Include(s => s.Songs)
+                .FirstAsync(pl => pl.ID == playlistID);
+        }
+
+        // Tupel Power :D
+        private (EmbedBuilder, ComponentBuilder) PlaylistSongBuilder(Playlist playlist, int page)
+        {
+            var embedBuilder = menuBuilder.PlaylistSongsEmbedSelection(playlist, page, playlistSongSize);
+
+            bool hasNextPage = playlist.Songs.Count > playlistSongSize * page;
+            var buttonBuilder = menuBuilder.PlaylistPageButtons(page == 1, page, hasNextPage, playlist.ID);
+
+            return (embedBuilder, buttonBuilder);
+        }
+
+        private async Task PlaylistDeleteYes(SocketMessageComponent arg)
         {
             var values = arg.Data.CustomId.Split(',', StringSplitOptions.TrimEntries);
             int playlistID = int.Parse(values[1]);
@@ -124,7 +211,7 @@ namespace MikuDiscordBot.MikuDiscord.Events
             });
         }
 
-        private async Task DeletePlaylistNo(SocketMessageComponent arg)
+        private async Task PlaylistDeleteNo(SocketMessageComponent arg)
         {
             await arg.UpdateAsync(o =>
             {
@@ -133,24 +220,12 @@ namespace MikuDiscordBot.MikuDiscord.Events
             });
         }
 
-        private async Task DeletePlaylist(SocketMessageComponent arg)
+        private async Task PlaylistDelete(SocketMessageComponent arg)
         {            
             string[] values = arg.Data.Values.ElementAt(0).Split(",", StringSplitOptions.TrimEntries);
-            uint playlistID = uint.Parse(values[0]);
+            int playlistID = int.Parse(values[0]);
 
-            var button1 = new ButtonBuilder();
-            button1.WithLabel("Yes");
-            button1.WithStyle(ButtonStyle.Success);
-            button1.WithCustomId($"DeletePlaylistYes,{values[0]}");
-
-            var button2 = new ButtonBuilder();
-            button2.WithLabel("No");
-            button2.WithStyle(ButtonStyle.Danger);
-            button2.WithCustomId("DeletePlaylistNo");
-
-            var builder = new ComponentBuilder();
-            builder.WithButton(button1);
-            builder.WithButton(button2);
+            var builder = menuBuilder.PlaylistDeleteButtons(playlistID);
 
             await arg.UpdateAsync(o =>
             {
@@ -160,7 +235,7 @@ namespace MikuDiscordBot.MikuDiscord.Events
             });
         }
 
-        private async Task AddSong(SocketMessageComponent arg)
+        private async Task SongAdd(SocketMessageComponent arg)
         {
             string[] values = arg.Data.Values.ElementAt(0).Split(",", StringSplitOptions.TrimEntries);
             uint playlistID = uint.Parse(values[0]);
@@ -208,7 +283,7 @@ namespace MikuDiscordBot.MikuDiscord.Events
                 return await JsonSerializer.DeserializeAsync<SongJsonInfo>(stream);
         }
 
-        private async Task SelectPlaylist(SocketMessageComponent arg)
+        private async Task PlaylistSelect(SocketMessageComponent arg)
         {
             string[] values = arg.Data.Values.ElementAt(0).Split(",", StringSplitOptions.TrimEntries);
             uint playlistID = uint.Parse(values[0]);
