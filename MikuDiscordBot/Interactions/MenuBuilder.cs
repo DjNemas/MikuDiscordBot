@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Primitives;
 using MikuDiscordBot.Database;
 using MikuDiscordBot.Database.Models;
 using MikuDiscordBot.MikuDiscord.MusicEngine;
@@ -20,10 +21,10 @@ namespace MikuDiscordBot.Interactions
             this.db = db;
         }
 
-        public ComponentBuilder PlaylistPageButtons(bool isPageOne, int currentPage, bool hasNextPage, uint playlistID)
+        public ComponentBuilder PlaylistPageButtons(string customID, bool isPageOne, uint currentPage, bool hasNextPage, uint playlistID)
         {
             var pageLeft = new ButtonBuilder()
-            .WithCustomId($"PlaylistPageLeft,{currentPage - 1},{playlistID}")
+            .WithCustomId($"{customID}:{playlistID},{currentPage - 1}")
             .WithEmote(new Emoji("\u2B05"))
             .WithDisabled(isPageOne)
             .WithStyle(ButtonStyle.Primary);
@@ -35,7 +36,7 @@ namespace MikuDiscordBot.Interactions
             .WithStyle(ButtonStyle.Secondary);
 
             var pageRight = new ButtonBuilder()
-            .WithCustomId($"PlaylistPageRight,{currentPage + 1},{playlistID}")
+            .WithCustomId($"{customID}:{playlistID},{currentPage + 1}")
             .WithEmote(new Emoji("\u27A1"))
             .WithDisabled(!hasNextPage)
             .WithStyle(ButtonStyle.Primary);
@@ -44,12 +45,12 @@ namespace MikuDiscordBot.Interactions
             
         }
 
-        public ComponentBuilder PlaylistDeleteButtons(int playlistID)
+        public ComponentBuilder PlaylistDeleteButtons(uint playlistID)
         {
             var button1 = new ButtonBuilder();
             button1.WithLabel("Yes");
             button1.WithStyle(ButtonStyle.Success);
-            button1.WithCustomId($"PlaylistDeleteYes,{playlistID}");
+            button1.WithCustomId($"PlaylistDeleteYes:{playlistID}");
 
             var button2 = new ButtonBuilder();
             button2.WithLabel("No");
@@ -62,13 +63,13 @@ namespace MikuDiscordBot.Interactions
             return builder;
         }
 
-        public EmbedBuilder PlaylistSongsEmbedSelection(Playlist playlist, int page, int playlistSongSize)
+        public EmbedBuilder PlaylistSongsEmbedSelection(Playlist playlist, uint page, uint playlistSongSize)
         {
-            int songBeginNumber = 1 + playlistSongSize * (page - 1);
-            int songLastNumber = playlistSongSize * page;
+            uint songBeginNumber = 1 + playlistSongSize * (page - 1);
+            uint songLastNumber = playlistSongSize * page;
 
             // if playlist contains more song that fit into this page ? use the maxpossible number for this page : else the last song
-            int pageEndNumber = playlist.Songs.Count > songLastNumber ? songLastNumber : playlist.Songs.Count;
+            uint pageEndNumber = playlist.Songs.Count > songLastNumber ? songLastNumber : (uint)playlist.Songs.Count;
 
             var embedBuilder = new EmbedBuilder()
             {
@@ -76,25 +77,21 @@ namespace MikuDiscordBot.Interactions
                 Color = new Color(0x00ffff)
             };
             // Start Loop for Page SongNumber e.g. 26 - 50
-            for (int songNumber = songBeginNumber; songNumber <= pageEndNumber; songNumber++)
+            for (uint songNumber = songBeginNumber; songNumber <= pageEndNumber; songNumber++)
             {
-                string SongTitle = playlist.Songs.ElementAt(songNumber - 1).Title;
-                string VideoURL = playlist.Songs.ElementAt(songNumber - 1).VideoURL;
+                string SongTitle = playlist.Songs.ElementAt((int)songNumber - 1).Title;
+                string VideoURL = playlist.Songs.ElementAt((int)songNumber - 1).VideoURL;
                 embedBuilder.AddField($" Song {songNumber}",
                     $"[{SongTitle}]({VideoURL})");
             }
             return embedBuilder;
         }
 
-        public SelectMenuBuilder PlaylistSelect(
-            string customID,
-            ulong guildID,
-            bool withDefault = false,
-            bool withNoneSelection = false,
-            params string[] extraData)
+        public SelectMenuBuilder PlaylistSelect(string customID, ulong guildID)
         {
             var menuBuilder = new SelectMenuBuilder();
             menuBuilder.WithCustomId(customID);
+            menuBuilder.WithPlaceholder("Select a Playlist");
             menuBuilder.WithMinValues(1);
             menuBuilder.WithMaxValues(1);
 
@@ -102,19 +99,10 @@ namespace MikuDiscordBot.Interactions
                     .First(guild => guild.GuildID == guildID)
                     .Playlists;
 
-            if(withNoneSelection)
-                menuBuilder.AddOption("None", "0");
-
-            StringBuilder sb = new StringBuilder();
-            foreach (var data in extraData) { sb.Append(',').Append(data); }
-
             foreach (var pl in playlists)
             {
-                string values = $"{pl.ID},{pl.PlaylistName}{sb}";
-                if (withDefault && pl.ID == PlaylistManager.GuildPlaylist[guildID]?.selectedPlaylist?.ID)
-                    menuBuilder.AddOption(pl.PlaylistName, values, isDefault: true);
-                else
-                    menuBuilder.AddOption(pl.PlaylistName, values);
+                string values = $"{pl.ID},{pl.PlaylistName}";
+                menuBuilder.AddOption(pl.PlaylistName, values);
             }
             return menuBuilder;
         }

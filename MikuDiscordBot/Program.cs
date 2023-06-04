@@ -32,11 +32,12 @@ namespace MikuDiscordBot
         public async Task MainAsync(string[] args)
         {
             Init();
-            discordClientService = serviceProvider?.GetRequiredService<DiscordClientService>();
-
+            
             interactionService = serviceProvider?.GetService<DiscordInteractionService>();
-            interactionService?.Start();
+            if (interactionService is not null)
+                await interactionService.Start();
 
+            discordClientService = serviceProvider?.GetRequiredService<DiscordClientService>();
             if(discordClientService is not null)
                 await discordClientService.Start();
         }
@@ -44,19 +45,22 @@ namespace MikuDiscordBot
         private static IServiceProvider CreateProvider()
         {
             var collection = new ServiceCollection()
-                .AddSingleton<DiscordClientService>()
+                // Discord
                 .AddSingleton(DiscordClientService.GetDiscordSocketConfig())
                 .AddSingleton<DiscordSocketClient>()
-                .AddSingleton<DiscordInteractionService>()
+                .AddSingleton<DiscordClientService>()
+                .AddSingleton<DiscordLog>()
+                .AddSingleton<ClientEvents>()
+                // Interaction
                 .AddSingleton(DiscordInteractionService.GetInteractionServiceConfig())
                 .AddSingleton<InteractionService>()
-                .AddSingleton<ClientEvents>()
-                .AddSingleton<DiscordLog>()
-                .AddSingleton<MenuBuilder>()
-                .AddScoped<PlaylistManager>()
-                .AddScoped<YTDLP>()
+                .AddSingleton<DiscordInteractionService>()
+                .AddTransient<MenuBuilder>()
+                // Other
+                .AddTransient<PlaylistManager>()
+                .AddTransient<YTDLP>()
                 // more here
-                .AddDbContext<DiscordDBContext>(contextLifetime: ServiceLifetime.Transient, optionsLifetime: ServiceLifetime.Transient);
+                .AddDbContext<DiscordDBContext>();
             return collection.BuildServiceProvider();
         }
 

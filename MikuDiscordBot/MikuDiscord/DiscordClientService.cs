@@ -2,6 +2,7 @@
 using Discord;
 using MikuDiscordBot.Database;
 using MikuDiscordBot.MikuDiscord.Events;
+using Discord.Net.Queue;
 
 namespace MikuDiscordBot.MikuDiscord
 {
@@ -24,6 +25,7 @@ namespace MikuDiscordBot.MikuDiscord
         {
             client.Log += log.ClientLog;
             client.GuildAvailable += events.GuildAvailable;
+            client.SlashCommandExecuted += events.SlashCommandExecuted;
             client.SelectMenuExecuted += events.SelectMenuExecuted;
             client.ButtonExecuted += events.ButtonExecuted;
 
@@ -34,20 +36,15 @@ namespace MikuDiscordBot.MikuDiscord
             await Task.Delay(-1);
         }
 
-        
-
         private string? GetTokenFromDB()
         {
             return db.DiscordApiConfigs.FirstOrDefault(config => config.ID == 1)?.DiscordToken;
         }
 
-        public static DiscordSocketConfig GetDiscordSocketConfig()
-        {
-            return new DiscordSocketConfig()
+        public static DiscordSocketConfig GetDiscordSocketConfig() => new DiscordSocketConfig()
             {
                 LogLevel = LogSeverity.Info,
                 GatewayIntents = GatewayIntents.AllUnprivileged | GatewayIntents.MessageContent
             };
-        }
     }
 }
