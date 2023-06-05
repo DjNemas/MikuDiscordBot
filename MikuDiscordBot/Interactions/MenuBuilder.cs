@@ -1,4 +1,6 @@
 ﻿using Discord;
+using Discord.Interactions;
+using Discord.WebSocket;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Primitives;
 using MikuDiscordBot.Database;
@@ -21,12 +23,96 @@ namespace MikuDiscordBot.Interactions
             this.db = db;
         }
 
-        public ComponentBuilder PlaylistPageButtons(string customID, bool isPageOne, uint currentPage, bool hasNextPage, uint playlistID)
+        /// <summary>
+        /// <para>Build Cancle and Delete Button for SongDelete</para>
+        /// <para>Sends customIDCancl and customIDDelete:playlistID,page,playlistSongSize</para>
+        /// </summary>
+        /// <param name="customIDCancel"></param>
+        /// <param name="customIDDelete"></param>
+        /// <param name="page"></param>
+        /// <param name="playlistSongSize"></param>
+        /// <param name="playlistID"></param>
+        /// <param name="songID"></param>
+        /// <returns></returns>
+        public ActionRowBuilder CancelDeleteButtons(string customIDCancel, string customIDDelete, uint page,
+            uint playlistSongSize, uint playlistID, uint? songID = null)
         {
+            var cancelButton = new ButtonBuilder();
+            cancelButton.WithCustomId($"{customIDCancel}");
+            cancelButton.WithLabel("Cancel");
+            cancelButton.WithStyle(ButtonStyle.Secondary);
+
+            var deleteButton = new ButtonBuilder();
+            deleteButton.WithCustomId($"{customIDDelete}:{playlistID},{songID},{page},{playlistSongSize}");
+            deleteButton.WithLabel("Delete");
+            deleteButton.WithStyle(ButtonStyle.Danger);
+            if(songID is null)
+                deleteButton.WithDisabled(true);
+            else
+                deleteButton.WithDisabled(false);
+
+            return new ActionRowBuilder().WithButton(cancelButton).WithButton(deleteButton);
+        }
+
+        /// <summary>
+        /// <para>Build All Buttons for Listed Delete Songs</para>
+        /// <para>Sends customID:playlistID,songID,page</para>
+        /// </summary>
+        /// <param name="customID"></param>
+        /// <param name="playlist"></param>
+        /// <param name="page"></param>
+        /// <param name="playlistSongSize"></param>
+        /// <param name="selectedSongID"></param>
+        /// <returns></returns>
+        public ActionRowBuilder SongDeleteSongNumberButtons(string customID, Playlist playlist,
+            uint page, uint playlistSongSize, uint? selectedSongID = null)
+        {
+            uint pageBeginNumber = playlistSongSize * (page - 1) + 1;
+
+            uint pageEndNumber;
+            if (playlist.Songs.Count <= playlistSongSize * page)
+                pageEndNumber = (uint)playlist.Songs.Count;
+            else
+                pageEndNumber = playlistSongSize * page;
+
+            var builder = new ActionRowBuilder();
+            for (; pageBeginNumber <= pageEndNumber; pageBeginNumber++)
+            {
+                uint playlistID = playlist.ID;
+                uint songID = playlist.Songs.ElementAt((int)(pageBeginNumber - 1)).ID;
+
+
+                var numberButton = new ButtonBuilder();
+                numberButton.WithCustomId($"{customID}:{playlistID},{songID},{page}");
+                numberButton.WithDisabled(false);
+                numberButton.WithLabel(pageBeginNumber.ToString());
+                if(selectedSongID is not null && songID == selectedSongID)
+                    numberButton.WithStyle(ButtonStyle.Danger);
+                else
+                    numberButton.WithStyle(ButtonStyle.Primary);
+                builder.WithButton(numberButton);
+            }
+            return builder;
+        }
+
+        /// <summary>
+        /// <para>Build Page Button for a Playlist</para>
+        /// <para>Sends customID:playlistID,page,playlistSongSize</para>
+        /// </summary>
+        /// <param name="customID"></param>
+        /// <param name="currentPage"></param>
+        /// <param name="playlist"></param>
+        /// <param name="playlistSongSize"></param>
+        /// <returns></returns>
+        public ActionRowBuilder PlaylistPageButtons(string customID, uint currentPage,
+            Playlist playlist, uint playlistSongSize)
+        {
+            bool hasNextPage = playlist.Songs.Count > playlistSongSize * currentPage;
+
             var pageLeft = new ButtonBuilder()
-            .WithCustomId($"{customID}:{playlistID},{currentPage - 1}")
+            .WithCustomId($"{customID}:{playlist.ID},{currentPage - 1},{playlistSongSize}")
             .WithEmote(new Emoji("\u2B05"))
-            .WithDisabled(isPageOne)
+            .WithDisabled(currentPage == 1)
             .WithStyle(ButtonStyle.Primary);
 
             var current = new ButtonBuilder()
@@ -36,26 +122,35 @@ namespace MikuDiscordBot.Interactions
             .WithStyle(ButtonStyle.Secondary);
 
             var pageRight = new ButtonBuilder()
-            .WithCustomId($"{customID}:{playlistID},{currentPage + 1}")
+            .WithCustomId($"{customID}:{playlist.ID},{currentPage + 1},{playlistSongSize}")
             .WithEmote(new Emoji("\u27A1"))
             .WithDisabled(!hasNextPage)
             .WithStyle(ButtonStyle.Primary);
 
-            return new ComponentBuilder().WithButton(pageLeft).WithButton(current).WithButton(pageRight);
-            
+            var component = new ActionRowBuilder().WithButton(pageLeft).WithButton(current).WithButton(pageRight);
+
+            return component;
         }
 
-        public ComponentBuilder PlaylistDeleteButtons(uint playlistID)
+        /// <summary>
+        /// <para>Build Playlist confirme delete Buttons</para>
+        /// <para>Sends customIDYes:playlistID and customIDNo </para>
+        /// </summary>
+        /// <param name="customIDYes"></param>
+        /// <param name="customIDNo"></param>
+        /// <param name="playlistID"></param>
+        /// <returns></returns>
+        public ComponentBuilder PlaylistDeleteButtons(string customIDYes, string customIDNo, uint playlistID)
         {
             var button1 = new ButtonBuilder();
             button1.WithLabel("Yes");
             button1.WithStyle(ButtonStyle.Success);
-            button1.WithCustomId($"PlaylistDeleteYes:{playlistID}");
+            button1.WithCustomId($"{customIDYes}:{playlistID}");
 
             var button2 = new ButtonBuilder();
             button2.WithLabel("No");
             button2.WithStyle(ButtonStyle.Danger);
-            button2.WithCustomId("PlaylistDeleteNo");
+            button2.WithCustomId($"{customIDNo}");
 
             var builder = new ComponentBuilder();
             builder.WithButton(button1);
@@ -87,7 +182,7 @@ namespace MikuDiscordBot.Interactions
             return embedBuilder;
         }
 
-        public SelectMenuBuilder PlaylistSelect(string customID, ulong guildID)
+        public SelectMenuBuilder PlaylistSelect(string customID, ulong guildID, uint? defaultPlaylistID = null)
         {
             var menuBuilder = new SelectMenuBuilder();
             menuBuilder.WithCustomId(customID);
@@ -102,7 +197,10 @@ namespace MikuDiscordBot.Interactions
             foreach (var pl in playlists)
             {
                 string values = $"{pl.ID},{pl.PlaylistName}";
-                menuBuilder.AddOption(pl.PlaylistName, values);
+                if(defaultPlaylistID is not null && pl.ID == defaultPlaylistID)
+                    menuBuilder.AddOption(pl.PlaylistName, values, isDefault: true);
+                else
+                    menuBuilder.AddOption(pl.PlaylistName, values);
             }
             return menuBuilder;
         }

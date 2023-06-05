@@ -12,7 +12,7 @@ namespace MikuDiscordBot.MikuDiscord
     {
         public static async Task ReportErrorUpdate(short ErrorCode, SocketMessageComponent interaction)
         {
-            await interaction.UpdateAsync(o =>
+            await interaction.ModifyOriginalResponseAsync(o =>
             {
                 o.Content = $"[Error {ErrorCode}] Something went wrong.\n" +
                 $"Please report a Issue with the given Error Code here: https://github.com/DjNemas/MikuDiscordBot/issues";

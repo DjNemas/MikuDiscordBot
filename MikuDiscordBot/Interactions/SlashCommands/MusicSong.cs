@@ -11,42 +11,35 @@ namespace MikuDiscordBot.Interactions.SlashCommands
         [Group("song", "Manage Songs")]
         public class MusicSong : InteractionModuleBase<SocketInteractionContext<SocketSlashCommand>>
         {
-            private readonly YTDLP ytDLP;
+            
             private readonly MenuBuilder menuBuilder;
-            public MusicSong(YTDLP ytDLP, MenuBuilder menuBuilder)
+            public MusicSong(MenuBuilder menuBuilder)
             {
-                this.ytDLP = ytDLP;
                 this.menuBuilder = menuBuilder;
             }
             #region SlashCommands
             [SlashCommand("add", "Add a Song to Playlist. Allowed: youtube.com/de, music.youtube.com, with watch?v={id}")]
             public async Task SongAdd(string youTubeUrl)
             {
-                await RespondAsync("Adding a Song for you ♪. Please Wait...");
                 Uri? uri = await CheckYTUrlIsCorrect(youTubeUrl);
                 if (uri is null) return;
 
-                if (!await ytDLP.DownloadMetaData(uri.AbsoluteUri, Context.Guild.Id))
-                {
-                    await ModifyOriginalResponseAsync(o => o.Content = "Not a valid Video.");
-                    return;
-                }
-
-                var menu = menuBuilder.PlaylistSelect("SongAdd", Context.Guild.Id);
+                var menu = menuBuilder.PlaylistSelect($"SongAdd:{uri.AbsoluteUri}", Context.Guild.Id);
                 var builder = new ComponentBuilder().WithSelectMenu(menu);
 
-                await ModifyOriginalResponseAsync(o =>
-                {
-                    o.Content = "Select the playlist to which you want to add the song.";
-                    o.Components = builder.Build();
-                });
+                await RespondAsync("Select the playlist to which you want to add the song.", components: builder.Build());          
             }
 
-            //[SlashCommand("delete", "Add a Song to Playlist. Allowed: youtube.com/de, music.youtube.com, with watch?v={id}")]
-            //public async Task SongDelete()
-            //{
-            //
-            //}
+            [SlashCommand("delete", "Add a Song to Playlist. Allowed: youtube.com/de, music.youtube.com, with watch?v={id}")]
+            public async Task SongDelete()
+            {
+                uint page = 1;
+                var menuSelection = menuBuilder.PlaylistSelect($"SongDeleteSelectPlaylist:{page}", Context.Guild.Id);
+                var builder = new ComponentBuilder().WithSelectMenu(menuSelection);
+
+                await RespondAsync("From which Playlist do you want to delete a Song?", components: builder.Build());
+
+            }
             #endregion
 
             #region HelperFunctions
@@ -60,7 +53,7 @@ namespace MikuDiscordBot.Interactions.SlashCommands
                 Uri.TryCreate(youTubeUrl, UriKind.Absolute, out uri);
                 if (uri is null)
                 {
-                    await ModifyOriginalResponseAsync(o => o.Content = "Not a Valid URL.\n" +
+                    await RespondAsync("Not a Valid URL.\n" +
                         "Allowed Domains: youtube.de, youtube.com, music.youtube.com\n" +
                         "Need to have a ID in URL: /watch?v={id}\n" +
                         "Example: https://www.youtube.com/watch?v=xIOg_K6Z1fg");
@@ -71,14 +64,14 @@ namespace MikuDiscordBot.Interactions.SlashCommands
                     host != "www.youtube.de" &&
                     host != "www.music.youtube.com")
                 {
-                    await ModifyOriginalResponseAsync(o => o.Content = "Not a Valid domain.\n" +
+                    await RespondAsync("Not a Valid domain.\n" +
                         "Allowed Domains: youtube.de, youtube.com, music.youtube.com");
                     return null;
                 }
 
                 if (!youTubeUrl.Contains("watch?v="))
                 {
-                    await ModifyOriginalResponseAsync(o => o.Content = "Video ID missing.\n" +
+                    await RespondAsync("Video ID missing.\n" +
                         "Please ensure the url contains a video id (watch?v={id})");
                     return null;
                 }

@@ -1,6 +1,7 @@
 Miku Error Codes:
 
 Code	Class	Method	AdditionalDescription
-100: ClientEvents AddSong()
-101: ClientEvents AddSong()
-102: ClientEvents DeletePlaylistYes() [Database Delete]
+100: ComponentInteaction.MusicSong SongAdd()
+101: ComponentInteaction.MusicSong SongAdd()
+102: ComponentInteaction.MusicPlaylist DeletePlaylistYes() [Database Delete]
+103: ComponentInteaction.MusicPlaylist PlaylistDeleteDefaultSongsYes() [Database Delete]

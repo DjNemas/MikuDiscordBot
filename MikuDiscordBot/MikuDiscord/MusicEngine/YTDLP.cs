@@ -97,7 +97,7 @@ namespace MikuDiscordBot.MikuDiscord.MusicEngine
             if (e.Data is not null)
             {
                 Console.WriteLine("[YTDLP Error] " + e.Data);
-                if (e.Data.Contains("Unsupported URL"))
+                if (e.Data.Contains("Unsupported URL") || e.Data.Contains("is not a valid URL"))
                     isValidVideo = false;
             }
         }
